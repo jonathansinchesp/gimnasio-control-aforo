@@ -4,7 +4,8 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
-    const { user } = useAuth();
+    // Traemos user y logout del contexto global de autenticación
+    const { user, logout } = useAuth();
     const [aforo, setAforo] = useState({
         actual: 0,
         capacidadMaxima: 100,
@@ -26,10 +27,14 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchAforo();
-        // Actualizar cada 5 segundos
         const interval = setInterval(fetchAforo, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    const handleLogoutClick = () => {
+        logout(); // Limpia el localStorage y el estado
+        toast.success('Sesión cerrada correctamente');
+    };
 
     const getColor = () => {
         if (aforo.porcentaje >= 100) return 'bg-red-500';
@@ -41,55 +46,49 @@ const Dashboard = () => {
         <div className="min-h-screen bg-gray-100">
             <div className="py-10">
                 <header className="px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center">
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Dashboard
-                        </h1>
-                        <div className="text-sm text-gray-600">
-                            Bienvenido, {user?.nombre}
+                    <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <div className="text-sm text-gray-600 mt-1">
+                                Bienvenido, <span className="font-semibold text-blue-600">{user?.nombre}</span> ({user?.rol})
+                            </div>
                         </div>
+
+                        {/* Botón de Cerrar Sesión */}
+                        <button
+                            type="button"
+                            onClick={handleLogoutClick}
+                            className="bg-red-600 hover:bg-red-700 text-white font-medium text-sm px-4 py-2 rounded-md shadow-sm transition-colors duration-200 cursor-pointer"
+                        >
+                            Cerrar Sesión
+                        </button>
                     </div>
                 </header>
+
                 <main className="px-4 sm:px-6 lg:px-8">
                     <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        {/* Tarjeta de Aforo Actual */}
                         <div className="bg-white overflow-hidden shadow rounded-lg">
                             <div className="px-4 py-5 sm:p-6">
-                                <dt className="text-sm font-medium text-gray-500 truncate">
-                                    Aforo Actual
-                                </dt>
-                                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                                    {aforo.actual}
-                                </dd>
+                                <dt className="text-sm font-medium text-gray-500 truncate">Aforo Actual</dt>
+                                <dd className="mt-1 text-3xl font-semibold text-gray-900">{aforo.actual}</dd>
                             </div>
                         </div>
 
-                        {/* Tarjeta de Capacidad Máxima */}
                         <div className="bg-white overflow-hidden shadow rounded-lg">
                             <div className="px-4 py-5 sm:p-6">
-                                <dt className="text-sm font-medium text-gray-500 truncate">
-                                    Capacidad Máxima
-                                </dt>
-                                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                                    {aforo.capacidadMaxima}
-                                </dd>
+                                <dt className="text-sm font-medium text-gray-500 truncate">Capacidad Máxima</dt>
+                                <dd className="mt-1 text-3xl font-semibold text-gray-900">{aforo.capacidadMaxima}</dd>
                             </div>
                         </div>
 
-                        {/* Tarjeta de Porcentaje de Ocupación */}
                         <div className="bg-white overflow-hidden shadow rounded-lg">
                             <div className="px-4 py-5 sm:p-6">
-                                <dt className="text-sm font-medium text-gray-500 truncate">
-                                    Ocupación
-                                </dt>
-                                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                                    {aforo.porcentaje}%
-                                </dd>
+                                <dt className="text-sm font-medium text-gray-500 truncate">Ocupación</dt>
+                                <dd className="mt-1 text-3xl font-semibold text-gray-900">{aforo.porcentaje}%</dd>
                             </div>
                         </div>
                     </div>
 
-                    {/* Barra de progreso */}
                     <div className="mt-8 bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
                             <div className="relative">

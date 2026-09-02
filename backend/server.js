@@ -6,12 +6,15 @@ const dotenv = require('dotenv');
 // Cargar variables de entorno
 dotenv.config();
 
-// Importar configuración de base de datos y sincronización de modelos
+// Importar configuración de base de datos
 const { testConnection } = require('./src/config/database');
 const { syncDatabase } = require('./src/models');
 
-// Importar enrutadores
+// Importar rutas de los diferentes módulos
 const authRoutes = require('./src/routes/authRoutes');
+const socioRoutes = require('./src/routes/socioRoutes');
+const accesoRoutes = require('./src/routes/accesoRoutes');
+const reporteRoutes = require('./src/routes/reporteRoutes');
 
 // Inicializar Express
 const app = express();
@@ -22,9 +25,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Registrar rutas de la API de forma explícita
+// Registrar enrutadores de la API
 app.use('/api/auth', authRoutes);
-
+app.use('/api/socios', socioRoutes);
+app.use('/api/acceso', accesoRoutes);
+app.use('/api/reportes', reporteRoutes);
 
 // Ruta de prueba base
 app.get('/', (req, res) => {
@@ -36,7 +41,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// Ruta de salud para verificar la conexión interna a la DB
+// Ruta de salud para verificar conexión interna a la DB
 app.get('/health', async (req, res) => {
     try {
         await testConnection();
@@ -54,7 +59,7 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Iniciar el servidor
+// Iniciar el servidor Express
 app.listen(PORT, async () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log(`📡 API lista para recibir peticiones`);
@@ -65,4 +70,15 @@ app.listen(PORT, async () => {
 
     // Sincronizar modelos con las tablas de Supabase
     await syncDatabase();
+
+    // Imprimir mapa de los endpoints disponibles en consola
+    console.log('\n📋 Endpoints disponibles:');
+    console.log('  POST /api/auth/login - Iniciar sesión');
+    console.log('  GET  /api/auth/perfil - Obtener perfil');
+    console.log('  GET  /api/socios - Listar socios');
+    console.log('  POST /api/socios - Crear socio');
+    console.log('  GET  /api/acceso/estado - Estado del aforo');
+    console.log('  POST /api/acceso/validar - Validar acceso QR');
+    console.log('  GET  /api/reportes - Generar reporte');
+    console.log('  GET  /api/reportes/csv - Exportar CSV');
 });
