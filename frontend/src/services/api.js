@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-// Añadimos /api al final de la ruta para conectar con los endpoints reales del backend
-const API_URL = (import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:5000/api');
-
+// La URL base tomará el puerto 5000 de forma directa e impecable
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
     baseURL: API_URL,
@@ -32,7 +31,6 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            // window.location.href = '/login'; <-- Modificado: Comentado para evitar que la consola se limpie
         }
         return Promise.reject(error);
     }
