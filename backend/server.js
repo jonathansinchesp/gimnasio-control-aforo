@@ -2,6 +2,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -10,38 +12,59 @@ dotenv.config();
 const { testConnection } = require('./src/config/database');
 const { syncDatabase } = require('./src/models');
 
-// Importar rutas de los diferentes módulos
+// Importar rutas
 const authRoutes = require('./src/routes/authRoutes');
 const socioRoutes = require('./src/routes/socioRoutes');
 const accesoRoutes = require('./src/routes/accesoRoutes');
 const reporteRoutes = require('./src/routes/reporteRoutes');
 
+// Importar middlewares
+const logger = require('./src/middlewares/logger');
+
 // Inicializar Express
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares globales
-app.use(cors());
+// Middlewares de seguridad y rendimiento
+app.use(compression());
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: {
+        success: false,
+        message: 'Demasiadas peticiones, por favor intenta más tarde'
+    }
+});
+app.use('/api', limiter);
+
+// Middlewares principales
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(logger);
 
-// Registrar enrutadores de la API
+// Registrar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/socios', socioRoutes);
 app.use('/api/acceso', accesoRoutes);
 app.use('/api/reportes', reporteRoutes);
 
-// Ruta de prueba base
+// Ruta de prueba
 app.get('/', (req, res) => {
     res.json({
         message: 'API del Sistema de Control de Aforo',
-        version: '1.0.0',
+        version: '2.0.0',
         status: 'online',
         timestamp: new Date().toISOString()
     });
 });
 
-// Ruta de salud para verificar conexión interna a la DB
+// Ruta de salud
 app.get('/health', async (req, res) => {
     try {
         await testConnection();
@@ -59,7 +82,17 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Iniciar el servidor Express
+// Manejador de errores global
+app.use((err, req, res, next) => {
+    console.error('Error global:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
+// Iniciar el servidor
 app.listen(PORT, async () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log(`📡 API lista para recibir peticiones`);
@@ -68,10 +101,9 @@ app.listen(PORT, async () => {
     // Probar conexión a la base de datos
     await testConnection();
 
-    // Sincronizar modelos con las tablas de Supabase
+    // Sincronizar modelos
     await syncDatabase();
 
-    // Imprimir mapa de los endpoints disponibles en consola
     console.log('\n📋 Endpoints disponibles:');
     console.log('  POST /api/auth/login - Iniciar sesión');
     console.log('  GET  /api/auth/perfil - Obtener perfil');
@@ -81,4 +113,5 @@ app.listen(PORT, async () => {
     console.log('  POST /api/acceso/validar - Validar acceso QR');
     console.log('  GET  /api/reportes - Generar reporte');
     console.log('  GET  /api/reportes/csv - Exportar CSV');
+    console.log(`\n✅ Servidor listo en modo ${process.env.NODE_ENV || 'development'}`);
 });

@@ -1,0 +1,40 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Fase de calentamiento"
+    - duration: 120
+      arrivalRate: 10
+      name: "Fase de carga"
+    - duration: 60
+      arrivalRate: 20
+      name: "Fase de estrés"
+  variables:
+    socioIds:
+      - "socio-1"
+      - "socio-2"
+      - "socio-3"
+      - "socio-4"
+      - "socio-5"
+
+scenarios:
+  - name: "Validación de acceso"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "admin@gimnasio.com"
+            password: "Admin123"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+
+      - loop:
+          - post:
+              url: "/api/acceso/validar"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+              json:
+                qrCode: "QR-{{ $randomString(8) }}"
+        count: 10
