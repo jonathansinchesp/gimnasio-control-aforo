@@ -7,27 +7,43 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Socios from './pages/Socios';
 import SocioForm from './pages/SocioForm';
+import SocioDetalle from './pages/SocioDetalle';
 import ControlAcceso from './pages/ControlAcceso';
+import Reportes from './pages/Reportes';
 
-// Componente para proteger rutas operativas
-const PrivateRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useAuth();
+// Componente para proteger rutas
+const PrivateRoute = ({ children, adminOnly = false }) => {
+    const { isAuthenticated, loading, user } = useAuth();
 
     if (loading) {
-        return <div className="flex justify-center items-center h-screen bg-gray-50 text-gray-500 font-medium">Cargando módulos...</div>;
+        return <div className="flex justify-center items-center h-screen">Cargando...</div>;
     }
 
-    return isAuthenticated ? children : <Navigate to="/login" />;
+    if (!isAuthenticated) {
+        return <Navigate to="/login" />;
+    }
+
+    if (adminOnly && user?.rol !== 'admin') {
+        return <Navigate to="/dashboard" />;
+    }
+
+    return children;
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnWindowFocus: false,
+            retry: 1
+        }
+    }
+});
 
 function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <Router>
                 <AuthProvider>
-                    {/* Alertas personalizadas oscuras */}
                     <Toaster
                         position="top-right"
                         toastOptions={{
@@ -39,11 +55,9 @@ function App() {
                         }}
                     />
                     <Routes>
-                        {/* Ruta Pública */}
                         <Route path="/login" element={<Login />} />
                         <Route path="/" element={<Navigate to="/dashboard" />} />
 
-                        {/* Rutas Privadas Protegidas */}
                         <Route
                             path="/dashboard"
                             element={
@@ -52,6 +66,7 @@ function App() {
                                 </PrivateRoute>
                             }
                         />
+
                         <Route
                             path="/socios"
                             element={
@@ -63,7 +78,7 @@ function App() {
                         <Route
                             path="/socios/nuevo"
                             element={
-                                <PrivateRoute>
+                                <PrivateRoute adminOnly>
                                     <SocioForm />
                                 </PrivateRoute>
                             }
@@ -71,16 +86,34 @@ function App() {
                         <Route
                             path="/socios/editar/:id"
                             element={
-                                <PrivateRoute>
+                                <PrivateRoute adminOnly>
                                     <SocioForm />
                                 </PrivateRoute>
                             }
                         />
                         <Route
+                            path="/socios/:id"
+                            element={
+                                <PrivateRoute>
+                                    <SocioDetalle />
+                                </PrivateRoute>
+                            }
+                        />
+
+                        <Route
                             path="/acceso"
                             element={
                                 <PrivateRoute>
                                     <ControlAcceso />
+                                </PrivateRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/reportes"
+                            element={
+                                <PrivateRoute adminOnly>
+                                    <Reportes />
                                 </PrivateRoute>
                             }
                         />
