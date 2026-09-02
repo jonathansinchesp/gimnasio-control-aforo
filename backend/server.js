@@ -39,11 +39,35 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
+// Configuración de orígenes permitidos para CORS
+const allowedOrigins = [
+    'https://gimnasio-control-aforo.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+
+if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 // Middlewares principales
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true
+    origin: function (origin, callback) {
+        // Permitir peticiones sin origen (como aplicaciones móviles, Postman o curl)
+        if (!origin) return callback(null, true);
+
+        // Permitir orígenes explícitos en la lista o cualquier subdominio preview de Vercel
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        } else {
+            return callback(null, true); // En desarrollo/pruebas permite el acceso dinámico
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
