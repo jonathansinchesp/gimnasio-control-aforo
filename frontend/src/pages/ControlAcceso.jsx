@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import QrScanner from '../components/QrScanner';
-import { accesoService } from '../services/socioService'; // Ajustado a tu estructura de servicios de socios
+import { accesoService } from '../services/services';
 import { FiUserCheck, FiUserX, FiClock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 

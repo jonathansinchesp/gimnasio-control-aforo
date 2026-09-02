@@ -20,7 +20,7 @@ export const useSocios = () => {
             setError('Error al cargar los socios');
             toast.error('Error al cargar la lista de socios');
             console.error('Error loading socios:', err);
-        } gold {
+        } finally {
             setLoading(false);
         }
     }, []);
@@ -71,7 +71,6 @@ export const useSocios = () => {
     const getHistorial = async (id) => {
         try {
             const response = await socioService.getHistorial(id);
-            // Calibrado: Tu API de reportes de socio entrega el objeto unificado directamente
             return { success: true, data: response.data?.data || null };
         } catch (err) {
             toast.error('Error al cargar el historial');

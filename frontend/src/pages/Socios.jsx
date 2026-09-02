@@ -15,11 +15,23 @@ const Socios = () => {
         }
     };
 
-    // Filtrar reactivamente la lista según el input del usuario
-    const filteredSocios = socios.filter(socio =>
-        socio.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        socio.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Control de seguridad: Si por algún motivo 'socios' no es un arreglo válido, forzarlo a vacío para evitar caídas
+    const sociosSeguros = Array.isArray(socios) ? socios : [];
+
+    // Filtrar reactivamente la lista según el input del usuario de forma segura
+    const filteredSocios = sociosSeguros.filter(socio => {
+        const nombre = socio?.nombre?.toLowerCase() || '';
+        const email = socio?.email?.toLowerCase() || '';
+        const term = searchTerm.toLowerCase();
+        return nombre.includes(term) || email.includes(term);
+    });
+
+    // Función de blindaje para formatear fechas sin romper el renderizado de React
+    const formatearFecha = (fechaRaw) => {
+        if (!fechaRaw) return 'Sin fecha';
+        const fecha = new Date(fechaRaw);
+        return isNaN(fecha.getTime()) ? 'Fecha inválida' : fecha.toLocaleDateString();
+    };
 
     if (loading) return <Loading />;
 
@@ -59,29 +71,29 @@ const Socios = () => {
                     <ul className="divide-y divide-gray-200">
                         {filteredSocios.length === 0 ? (
                             <li className="px-6 py-8 text-center text-gray-500 font-medium">
-                                🔍 No se encontraron socios que coincidan con la búsqueda
+                                🔍 No se encontraron socios registrados
                             </li>
                         ) : (
                             filteredSocios.map((socio) => (
-                                <li key={socio.id} className="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
+                                <li key={socio?.id || Math.random()} className="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
                                     <div className="flex items-center justify-between">
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                                {socio.nombre}
+                                                {socio?.nombre || 'Socio sin nombre'}
                                             </p>
                                             <p className="text-sm text-gray-500 truncate mt-0.5">
-                                                {socio.email} • {socio.telefono}
+                                                {socio?.email || 'Socio sin email'} • {socio?.telefono || 'Sin teléfono'}
                                             </p>
                                             <div className="flex items-center space-x-3 mt-1.5">
                                                 <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                    socio.activo
+                                                    socio?.activo
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-red-100 text-red-800'
                                                 }`}>
-                                                    {socio.activo ? 'Activo' : 'Inactivo'}
+                                                    {socio?.activo ? 'Activo' : 'Inactivo'}
                                                 </span>
                                                 <span className="text-xs text-gray-500 font-medium">
-                                                    📅 Vence: {new Date(socio.fechaVencimiento).toLocaleDateString()}
+                                                    📅 Vence: {formatearFecha(socio?.fechaVencimiento)}
                                                 </span>
                                             </div>
                                         </div>
@@ -89,23 +101,24 @@ const Socios = () => {
                                         {/* Botones de acción contextuales */}
                                         <div className="flex items-center space-x-3">
                                             <Link
-                                                to={`/socios/${socio.id}`}
+                                                to={`/socios/${socio?.id}`}
                                                 title="Ver Ficha"
                                                 className="text-blue-600 hover:text-blue-900 transition-colors duration-150 p-1 hover:bg-blue-50 rounded"
                                             >
                                                 <FiEye className="h-5 w-5" />
                                             </Link>
                                             <Link
-                                                to={`/socios/editar/${socio.id}`}
+                                                to={`/socios/editar/${socio?.id}`}
                                                 title="Editar"
                                                 className="text-yellow-600 hover:text-yellow-900 transition-colors duration-150 p-1 hover:bg-yellow-50 rounded"
                                             >
                                                 <FiEdit2 className="h-5 w-5" />
                                             </Link>
                                             <button
-                                                onClick={() => handleDelete(socio.id, socio.nombre)}
-                                                disabled={!socio.activo}
-                                                title={socio.activo ? "Desactivar Socio" : "Ya Desactivado"}
+                                                type="button"
+                                                onClick={() => handleDelete(socio?.id, socio?.nombre)}
+                                                disabled={!socio?.activo}
+                                                title={socio?.activo ? "Desactivar Socio" : "Ya Desactivado"}
                                                 className="text-red-600 hover:text-red-900 transition-colors duration-150 p-1 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <FiTrash2 className="h-5 w-5" />
