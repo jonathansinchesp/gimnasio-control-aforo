@@ -6,20 +6,27 @@ const dotenv = require('dotenv');
 // Cargar variables de entorno
 dotenv.config();
 
-// Importar configuración de base de datos
+// Importar configuración de base de datos y sincronización de modelos
 const { testConnection } = require('./src/config/database');
 const { syncDatabase } = require('./src/models');
+
+// Importar enrutadores
+const authRoutes = require('./src/routes/authRoutes');
 
 // Inicializar Express
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
+// Middlewares globales
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ruta de prueba
+// Registrar rutas de la API de forma explícita
+app.use('/api/auth', authRoutes);
+
+
+// Ruta de prueba base
 app.get('/', (req, res) => {
     res.json({
         message: 'API del Sistema de Control de Aforo',
@@ -29,7 +36,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// Ruta de salud para verificar conexión a DB
+// Ruta de salud para verificar la conexión interna a la DB
 app.get('/health', async (req, res) => {
     try {
         await testConnection();
@@ -56,6 +63,6 @@ app.listen(PORT, async () => {
     // Probar conexión a la base de datos
     await testConnection();
 
-    // Sincronizar modelos
+    // Sincronizar modelos con las tablas de Supabase
     await syncDatabase();
 });
