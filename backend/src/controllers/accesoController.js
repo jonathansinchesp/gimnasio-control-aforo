@@ -4,54 +4,73 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Configuración base de la capacidad
 let capacidadMaximaBase = 100;
 
-// Helper para calcular el aforo real desde las tablas permanentes de la base de datos
+// Helper optimizado: Ejecuta 1 sola consulta agrupada en lugar de N+1 consultas
 const obtenerAforoEnTiempoReal = async () => {
-    // 1. Obtener el último registro absoluto de cada socio para saber quién sigue dentro
-    // Agrupamos por socioId y filtramos los que tengan tipo 'entrada' como último estado
-    const ultimosRegistros = await RegistroAcceso.findAll({
-        attributes: [
-            'socioId',
-            [sequelize.fn('MAX', sequelize.col('fechaHora')), 'maxFecha']
-        ],
-        group: ['socioId'],
-        raw: true
-    });
+    try {
+        // Traemos el último registro de cada socio con una Subconsulta limpia
+        const [resultados] = await sequelize.query(`
+            SELECT COUNT(*) as dentro 
+            FROM (
+                SELECT DISTINCT ON ("socioId") "tipo"
+                FROM "RegistroAccesos"
+                ORDER BY "socioId", "fechaHora" DESC
+            ) ultimo_estado
+            WHERE tipo = 'entrada';
+        `);
 
-    let actualesDentro = 0;
+        const actualesDentro = parseInt(resultados[0]?.dentro || 0, 10);
 
-    // 2. Verificar el tipo de cada uno de esos últimos registros
-    for (const reg of ultimosRegistros) {
-        const detalle = await RegistroAcceso.findOne({
-            where: {
-                socioId: reg.socioId,
-                fechaHora: reg.maxFecha
-            },
+        const porcentaje = capacidadMaximaBase > 0
+            ? Math.round((actualesDentro / capacidadMaximaBase) * 100)
+            : 0;
+
+        let alerta = 'normal';
+        if (porcentaje >= 100) alerta = 'critical';
+        else if (porcentaje >= 80) alerta = 'warning';
+
+        return {
+            actual: actualesDentro,
+            capacidadMaxima: capacidadMaximaBase,
+            porcentaje,
+            alerta
+        };
+    } catch (error) {
+        // Alternativa Sequelize si SQL directo difiere en nombre de tabla
+        const ultimos = await RegistroAcceso.findAll({
+            attributes: ['socioId', 'tipo', 'fechaHora'],
+            order: [['fechaHora', 'DESC']],
             raw: true
         });
 
-        if (detalle && detalle.tipo === 'entrada') {
-            actualesDentro++;
+        const dentroMap = new Map();
+        for (const reg of ultimos) {
+            if (!dentroMap.has(reg.socioId)) {
+                dentroMap.set(reg.socioId, reg.tipo);
+            }
         }
+
+        let actualesDentro = 0;
+        dentroMap.forEach(tipo => {
+            if (tipo === 'entrada') actualesDentro++;
+        });
+
+        const porcentaje = capacidadMaximaBase > 0
+            ? Math.round((actualesDentro / capacidadMaximaBase) * 100)
+            : 0;
+
+        let alerta = 'normal';
+        if (porcentaje >= 100) alerta = 'critical';
+        else if (porcentaje >= 80) alerta = 'warning';
+
+        return {
+            actual: actualesDentro,
+            capacidadMaxima: capacidadMaximaBase,
+            porcentaje,
+            alerta
+        };
     }
-
-    // 3. Estructurar el objeto de respuesta con los porcentajes matemáticos precisos
-    const porcentaje = capacidadMaximaBase > 0
-        ? Math.round((actualesDentro / capacidadMaximaBase) * 100)
-        : 0;
-
-    let alerta = 'normal';
-    if (porcentaje >= 100) alerta = 'critical';
-    else if (porcentaje >= 80) alerta = 'warning';
-
-    return {
-        actual: actualesDentro,
-        capacidadMaxima: capacidadMaximaBase,
-        porcentaje,
-        alerta
-    };
 };
 
 const configurarAforo = async (req, res) => {
@@ -70,7 +89,6 @@ const configurarAforo = async (req, res) => {
 
 const getEstadoAforo = async (req, res) => {
     try {
-        // En lugar de leer una variable de memoria volátil, calcula los datos reales de Supabase
         const aforo = await obtenerAforoEnTiempoReal();
         res.json({
             success: true,
@@ -84,7 +102,6 @@ const getEstadoAforo = async (req, res) => {
     }
 };
 
-// Validar acceso por QR (Toggle de Entrada/Salida nativo sin dependencias de Op)
 const validarAcceso = async (req, res) => {
     try {
         const { qrCode } = req.body;
@@ -104,7 +121,6 @@ const validarAcceso = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Membresía expirada', code: 'MEMBRESIA_EXPIRADA' });
         }
 
-        // Obtener el ÚLTIMO registro absoluto de este socio para saber si está dentro o fuera
         const ultimoRegistro = await RegistroAcceso.findOne({
             where: { socioId: socio.id },
             order: [['fechaHora', 'DESC']]
@@ -112,7 +128,6 @@ const validarAcceso = async (req, res) => {
 
         const aforoPrevio = await obtenerAforoEnTiempoReal();
 
-        // REGLA DE TOGGLE: Si el último registro fue una ENTRADA, le toca salir obligatoriamente
         if (ultimoRegistro && ultimoRegistro.tipo === 'entrada') {
             const salida = await RegistroAcceso.create({
                 socioId: socio.id,
@@ -136,7 +151,6 @@ const validarAcceso = async (req, res) => {
             });
         }
 
-        // REGLA DE ENTRADA: Si no tiene registros o el último fue una salida, entra
         if (aforoPrevio.actual >= aforoPrevio.capacidadMaxima) {
             return res.status(403).json({ success: false, message: 'Aforo completo - Intente más tarde', code: 'AFORO_COMPLETO' });
         }
