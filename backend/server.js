@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// 1. Configuración de Trust Proxy (Indispensable para Render/Vercel)
+// 1. Configuración de Trust Proxy para Render/Vercel
 app.set('trust proxy', 1);
 
 // 2. Configuración de CORS
@@ -21,16 +21,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// 3. Configuración de Rate Limiter (Evita bloqueos 429 en peticiones preflight OPTIONS)
+// 3. Rate Limiter (Soporta preflight OPTIONS)
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
+    windowMs: 15 * 60 * 1000,
     max: 2000,
-    skipOptions: true, // Omite validaciones preflight (OPTIONS)
+    skipOptions: true,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
         success: false,
-        message: 'Demasiadas peticiones desde esta IP, por favor intente más tarde.'
+        message: 'Demasiadas peticiones desde esta IP, intente más tarde.'
     }
 });
 
@@ -42,24 +42,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // 5. Carga de Rutas del Sistema
 try {
-    // Intento 1: Buscar rutas dentro de ./src/routes/
     app.use('/api/acceso', require('./src/routes/accesoRoutes'));
     app.use('/api/socios', require('./src/routes/socioRoutes'));
     app.use('/api/auth', require('./src/routes/authRoutes'));
-    app.use('/api/reportes', require('./src/routes/reporteRoutes'));
+    app.use('/api/reportes', require('./src/routes/reporteroutes')); // <--- NOMBRE EXACTO ENCONTRADO
 } catch (e) {
     try {
-        // Intento 2: Buscar rutas dentro de ./routes/
         app.use('/api/acceso', require('./routes/accesoRoutes'));
         app.use('/api/socios', require('./routes/socioRoutes'));
         app.use('/api/auth', require('./routes/authRoutes'));
-        app.use('/api/reportes', require('./routes/reporteRoutes'));
+        app.use('/api/reportes', require('./routes/reporteroutes'));
     } catch (err) {
         console.log('Error al cargar módulos de rutas:', err.message);
     }
 }
 
-// Ruta de comprobación de estado de la API (Health Check)
+// Health Check
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date() });
 });
