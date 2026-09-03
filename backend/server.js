@@ -7,27 +7,25 @@ dotenv.config();
 
 const app = express();
 
-// 1. Configuración de Trust Proxy (Indispensable para servidores en la nube como Render/Vercel)
+// 1. Configuración de Trust Proxy (Indispensable para Render/Vercel)
 app.set('trust proxy', 1);
 
 // 2. Configuración de CORS
 const corsOptions = {
-    origin: '*', // Permite solicitudes desde cualquier dominio (tu frontend en Vercel)
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 };
 
 app.use(cors(corsOptions));
-
-// Responder de inmediato a las solicitudes Preflight (OPTIONS) para evitar bloqueos por CORS
 app.options('*', cors(corsOptions));
 
-// 3. Configuración de Rate Limiter (Evita bloqueos 429 en peticiones OPTIONS)
+// 3. Configuración de Rate Limiter (Evita bloqueos 429 en peticiones preflight OPTIONS)
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // Ventana de 15 minutos
-    max: 2000, // Límite amplio de peticiones
-    skipOptions: true, // ¡CRÍTICO! Omite la validación en peticiones OPTIONS (preflight)
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 2000,
+    skipOptions: true, // Omite validaciones preflight (OPTIONS)
     standardHeaders: true,
     legacyHeaders: false,
     message: {
@@ -38,7 +36,7 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// 4. Middlewares de parseo de cuerpo de petición
+// 4. Middlewares globales
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -48,14 +46,16 @@ try {
     app.use('/api/acceso', require('./src/routes/accesoRoutes'));
     app.use('/api/socios', require('./src/routes/socioRoutes'));
     app.use('/api/auth', require('./src/routes/authRoutes'));
+    app.use('/api/reportes', require('./src/routes/reporteRoutes'));
 } catch (e) {
     try {
         // Intento 2: Buscar rutas dentro de ./routes/
         app.use('/api/acceso', require('./routes/accesoRoutes'));
         app.use('/api/socios', require('./routes/socioRoutes'));
         app.use('/api/auth', require('./routes/authRoutes'));
+        app.use('/api/reportes', require('./routes/reporteRoutes'));
     } catch (err) {
-        console.log('Error al cargar módulos de rutas. Verifica los nombres de tus archivos en routes/.');
+        console.log('Error al cargar módulos de rutas:', err.message);
     }
 }
 
