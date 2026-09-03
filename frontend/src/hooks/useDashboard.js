@@ -14,13 +14,19 @@ export const useDashboard = () => {
     const fetchAforo = useCallback(async () => {
         try {
             const response = await dashboardService.getEstadoAforo();
-            // Corrección: Tu API devuelve los datos directamente en response.data
-            if (response.data) {
+
+            // LÍNEA DE DIAGNÓSTICO TEMPORAL: Imprime en la consola de Chrome la respuesta exacta del servidor
+            console.log("DIAGNÓSTICO AFORO:", response?.data);
+
+            // CRUCIAL: Axios guarda la respuesta del servidor en response.data
+            if (response && response.data) {
+                const apiData = response.data;
+
                 setAforo({
-                    actual: response.data.actual ?? 0,
-                    capacidadMaxima: response.data.capacidadMaxima ?? 100,
-                    porcentaje: response.data.porcentaje ?? 0,
-                    alerta: response.data.alerta ?? 'normal'
+                    actual: apiData.actual ?? 0,
+                    capacidadMaxima: apiData.capacidadMaxima ?? 100,
+                    porcentaje: apiData.porcentaje ?? 0,
+                    alerta: apiData.alerta ?? 'normal'
                 });
             }
             setError(null);
@@ -33,10 +39,11 @@ export const useDashboard = () => {
     }, []);
 
     useEffect(() => {
+        // Ejecución inmediata al cargar la pantalla
         fetchAforo();
 
-        // Actualizar automáticamente cada 5 segundos en tiempo real
-        const interval = setInterval(fetchAforo, 5000);
+        // Actualizar automáticamente cada 2 segundos en tiempo real (Polleo fluido)
+        const interval = setInterval(fetchAforo, 2000);
 
         return () => clearInterval(interval);
     }, [fetchAforo]);

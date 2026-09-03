@@ -4,27 +4,54 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Estado del aforo en memoria para tiempo real
-let estadoAforo = {
-    actual: 0,
-    capacidadMaxima: 100,
-    porcentaje: 0,
-    alerta: 'normal'
-};
+// Configuración base de la capacidad
+let capacidadMaximaBase = 100;
 
-const actualizarPorcentaje = () => {
-    const { capacidadMaxima, actual } = estadoAforo;
-    estadoAforo.porcentaje = capacidadMaxima > 0
-        ? Math.round((actual / capacidadMaxima) * 100)
+// Helper para calcular el aforo real desde las tablas permanentes de la base de datos
+const obtenerAforoEnTiempoReal = async () => {
+    // 1. Obtener el último registro absoluto de cada socio para saber quién sigue dentro
+    // Agrupamos por socioId y filtramos los que tengan tipo 'entrada' como último estado
+    const ultimosRegistros = await RegistroAcceso.findAll({
+        attributes: [
+            'socioId',
+            [sequelize.fn('MAX', sequelize.col('fechaHora')), 'maxFecha']
+        ],
+        group: ['socioId'],
+        raw: true
+    });
+
+    let actualesDentro = 0;
+
+    // 2. Verificar el tipo de cada uno de esos últimos registros
+    for (const reg of ultimosRegistros) {
+        const detalle = await RegistroAcceso.findOne({
+            where: {
+                socioId: reg.socioId,
+                fechaHora: reg.maxFecha
+            },
+            raw: true
+        });
+
+        if (detalle && detalle.tipo === 'entrada') {
+            actualesDentro++;
+        }
+    }
+
+    // 3. Estructurar el objeto de respuesta con los porcentajes matemáticos precisos
+    const porcentaje = capacidadMaximaBase > 0
+        ? Math.round((actualesDentro / capacidadMaximaBase) * 100)
         : 0;
 
-    if (estadoAforo.porcentaje >= 100) {
-        estadoAforo.alerta = 'critical';
-    } else if (estadoAforo.porcentaje >= 80) {
-        estadoAforo.alerta = 'warning';
-    } else {
-        estadoAforo.alerta = 'normal';
-    }
+    let alerta = 'normal';
+    if (porcentaje >= 100) alerta = 'critical';
+    else if (porcentaje >= 80) alerta = 'warning';
+
+    return {
+        actual: actualesDentro,
+        capacidadMaxima: capacidadMaximaBase,
+        porcentaje,
+        alerta
+    };
 };
 
 const configurarAforo = async (req, res) => {
@@ -33,9 +60,9 @@ const configurarAforo = async (req, res) => {
         if (!capacidadMaxima || capacidadMaxima <= 0) {
             return res.status(400).json({ message: 'La capacidad máxima debe ser un número positivo' });
         }
-        estadoAforo.capacidadMaxima = capacidadMaxima;
-        actualizarPorcentaje();
-        res.json({ success: true, data: { capacidadMaxima: estadoAforo.capacidadMaxima } });
+        capacidadMaximaBase = capacidadMaxima;
+        const aforo = await obtenerAforoEnTiempoReal();
+        res.json({ success: true, data: { capacidadMaxima: aforo.capacidadMaxima } });
     } catch (error) {
         res.status(500).json({ message: 'Error al configurar el aforo', error: error.message });
     }
@@ -43,12 +70,14 @@ const configurarAforo = async (req, res) => {
 
 const getEstadoAforo = async (req, res) => {
     try {
+        // En lugar de leer una variable de memoria volátil, calcula los datos reales de Supabase
+        const aforo = await obtenerAforoEnTiempoReal();
         res.json({
             success: true,
-            actual: estadoAforo.actual,
-            capacidadMaxima: estadoAforo.capacidadMaxima,
-            porcentaje: estadoAforo.porcentaje,
-            alerta: estadoAforo.alerta
+            actual: aforo.actual,
+            capacidadMaxima: aforo.capacidadMaxima,
+            porcentaje: aforo.porcentaje,
+            alerta: aforo.alerta
         });
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener el estado del aforo', error: error.message });
@@ -81,6 +110,8 @@ const validarAcceso = async (req, res) => {
             order: [['fechaHora', 'DESC']]
         });
 
+        const aforoPrevio = await obtenerAforoEnTiempoReal();
+
         // REGLA DE TOGGLE: Si el último registro fue una ENTRADA, le toca salir obligatoriamente
         if (ultimoRegistro && ultimoRegistro.tipo === 'entrada') {
             const salida = await RegistroAcceso.create({
@@ -91,8 +122,7 @@ const validarAcceso = async (req, res) => {
                 estado: 'completado'
             });
 
-            estadoAforo.actual = Math.max(0, estadoAforo.actual - 1);
-            actualizarPorcentaje();
+            const aforoActualizado = await obtenerAforoEnTiempoReal();
 
             return res.json({
                 success: true,
@@ -101,13 +131,13 @@ const validarAcceso = async (req, res) => {
                 data: {
                     socio: { nombre: socio.nombre, email: socio.email },
                     salida,
-                    aforo: estadoAforo
+                    aforo: aforoActualizado
                 }
             });
         }
 
         // REGLA DE ENTRADA: Si no tiene registros o el último fue una salida, entra
-        if (estadoAforo.actual >= estadoAforo.capacidadMaxima) {
+        if (aforoPrevio.actual >= aforoPrevio.capacidadMaxima) {
             return res.status(403).json({ success: false, message: 'Aforo completo - Intente más tarde', code: 'AFORO_COMPLETO' });
         }
 
@@ -119,8 +149,7 @@ const validarAcceso = async (req, res) => {
             estado: 'completado'
         });
 
-        estadoAforo.actual += 1;
-        actualizarPorcentaje();
+        const aforoFinal = await obtenerAforoEnTiempoReal();
 
         res.json({
             success: true,
@@ -129,7 +158,7 @@ const validarAcceso = async (req, res) => {
             data: {
                 socio: { nombre: socio.nombre, email: socio.email },
                 entrada,
-                aforo: estadoAforo
+                aforo: aforoFinal
             }
         });
 
@@ -147,6 +176,5 @@ const validarAcceso = async (req, res) => {
 module.exports = {
     getEstadoAforo,
     configurarAforo,
-    validarAcceso,
-    estadoAforo
+    validarAcceso
 };
