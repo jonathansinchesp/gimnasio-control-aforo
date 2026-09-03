@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// 1. Configuración de Trust Proxy para servidores en la nube
+// 1. Configuración de Trust Proxy (Indispensable para Render/Vercel)
 app.set('trust proxy', 1);
 
 // 2. Configuración de CORS
@@ -21,7 +21,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// 3. Rate Limiter (Soporta preflight OPTIONS)
+// 3. Rate Limiter (Soporta peticiones preflight OPTIONS)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 2000,
@@ -40,7 +40,7 @@ app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 5. Función auxiliar para cargar rutas de forma independiente
+// 5. Carga de Rutas del Sistema
 const safeRequire = (path) => {
     try {
         return require(path);
@@ -49,16 +49,20 @@ const safeRequire = (path) => {
     }
 };
 
-// Carga individual respetando mayúsculas/minúsculas de Linux
+// Carga exacta apuntando al nombre real de tu archivo en el disco: reporteReotes.js
 const accesoRoutes = safeRequire('./src/routes/accesoRoutes') || safeRequire('./routes/accesoRoutes');
 const socioRoutes = safeRequire('./src/routes/socioRoutes') || safeRequire('./routes/socioRoutes');
 const authRoutes = safeRequire('./src/routes/authRoutes') || safeRequire('./routes/authRoutes');
-const reporteRoutes = safeRequire('./src/routes/reporteRoutes') || safeRequire('./routes/reporteRoutes');
+const reporteRoutes = safeRequire('./src/routes/reporteReotes') || safeRequire('./routes/reporteReotes') || safeRequire('./src/routes/reporteRoutes');
 
 if (accesoRoutes) app.use('/api/acceso', accesoRoutes);
 if (socioRoutes) app.use('/api/socios', socioRoutes);
 if (authRoutes) app.use('/api/auth', authRoutes);
-if (reporteRoutes) app.use('/api/reportes', reporteRoutes);
+
+if (reporteRoutes) {
+    app.use('/api/reportes', reporteRoutes);
+    app.use('/reportes', reporteRoutes);
+}
 
 // Health Check
 app.get('/health', (req, res) => {
@@ -70,7 +74,8 @@ app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
 
