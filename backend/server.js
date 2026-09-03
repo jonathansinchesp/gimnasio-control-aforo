@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// 1. Configuración de Trust Proxy para Render/Vercel
+// 1. Configuración de Trust Proxy para servidores en la nube
 app.set('trust proxy', 1);
 
 // 2. Configuración de CORS
@@ -40,22 +40,25 @@ app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 5. Carga de Rutas del Sistema
-try {
-    app.use('/api/acceso', require('./src/routes/accesoRoutes'));
-    app.use('/api/socios', require('./src/routes/socioRoutes'));
-    app.use('/api/auth', require('./src/routes/authRoutes'));
-    app.use('/api/reportes', require('./src/routes/reporteroutes')); // <--- NOMBRE EXACTO ENCONTRADO
-} catch (e) {
+// 5. Función auxiliar para cargar rutas de forma independiente
+const safeRequire = (path) => {
     try {
-        app.use('/api/acceso', require('./routes/accesoRoutes'));
-        app.use('/api/socios', require('./routes/socioRoutes'));
-        app.use('/api/auth', require('./routes/authRoutes'));
-        app.use('/api/reportes', require('./routes/reporteroutes'));
-    } catch (err) {
-        console.log('Error al cargar módulos de rutas:', err.message);
+        return require(path);
+    } catch (e) {
+        return null;
     }
-}
+};
+
+// Carga individual respetando mayúsculas/minúsculas de Linux
+const accesoRoutes = safeRequire('./src/routes/accesoRoutes') || safeRequire('./routes/accesoRoutes');
+const socioRoutes = safeRequire('./src/routes/socioRoutes') || safeRequire('./routes/socioRoutes');
+const authRoutes = safeRequire('./src/routes/authRoutes') || safeRequire('./routes/authRoutes');
+const reporteRoutes = safeRequire('./src/routes/reporteRoutes') || safeRequire('./routes/reporteRoutes');
+
+if (accesoRoutes) app.use('/api/acceso', accesoRoutes);
+if (socioRoutes) app.use('/api/socios', socioRoutes);
+if (authRoutes) app.use('/api/auth', authRoutes);
+if (reporteRoutes) app.use('/api/reportes', reporteRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
@@ -67,8 +70,7 @@ app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: 'Error interno del servidor'
     });
 });
 
@@ -76,7 +78,7 @@ const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
-        console.log(`Servidor iniciado exitosamente en el puerto ${PORT}`);
+        console.log(`Servidor activo en puerto ${PORT}`);
     });
 }
 
