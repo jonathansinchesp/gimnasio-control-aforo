@@ -60,6 +60,25 @@ const Reportes = () => {
         return format(parseISO(fecha), 'dd/MM/yyyy HH:mm', { locale: es });
     };
 
+    // Función que extrae la hora inicial enviada y recalcula el rango correctamente
+    const formatearRangoHora = (valHora) => {
+        if (!valHora) return 'N/A';
+
+        const str = String(valHora);
+        const match = str.match(/^\d+/);
+        if (!match) return str;
+
+        const inicio = parseInt(match[0], 10);
+        if (isNaN(inicio)) return str;
+
+        const fin = (inicio + 1) % 24;
+
+        const inicioStr = String(inicio).padStart(2, '0');
+        const finStr = String(fin).padStart(2, '0');
+
+        return `${inicioStr}:00 - ${finStr}:00`;
+    };
+
     const stats = reporte?.estadisticas || {};
 
     return (
@@ -209,7 +228,9 @@ const Reportes = () => {
                                 <div className="space-y-2">
                                     {reporte.horasPico.map((hora, index) => (
                                         <div key={index} className="flex items-center">
-                                            <span className="w-32 text-sm text-gray-600">{hora.hora}</span>
+                                            <span className="w-32 text-sm text-gray-600">
+                                                {formatearRangoHora(hora.hora)}
+                                            </span>
                                             <div className="flex-1 ml-4">
                                                 <div className="relative h-6 bg-gray-200 rounded-full overflow-hidden">
                                                     <div
