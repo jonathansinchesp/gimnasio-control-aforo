@@ -9,9 +9,9 @@ Sistema de información para la automatización del control de acceso y gestión
 - PostgreSQL/Supabase (Base de Datos)
 
 ## CREDENCIALES ADMINISTRADOR
-- admin@gmail.com
+- admin@gimnasio.com
 - Admin123
 
 ## CREDENCIALES RECEPCIONISTA
-- recep@gmail.com
+- recep@gimnasio.com
 - Recep123
